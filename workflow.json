@@ -1,0 +1,462 @@
+{
+  "name": "workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -384,
+        96
+      ],
+      "id": "b38f10cb-3f86-4b59-84d1-bfbed7273586",
+      "name": "Telegram Trigger",
+      "webhookId": "16e8e937-5e60-46b3-a18b-64ca265b2898",
+      "credentials": {
+        "telegramApi": {
+          "id": "zhc2pywZ8bHRLCiX",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1e7adc8-8fff-44fe-a259-15bde0995e22",
+              "name": "data",
+              "value": "={{ $json.data.base64Encode() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1024,
+        80
+      ],
+      "id": "c4dfade3-db26-4f00-bb1b-6f083912c2fc",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        80
+      ],
+      "id": "83153548-b9fa-42d1-a709-5336f6bf75a5",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "96e43ebb-68a4-4778-838f-02d19da4e649",
+              "leftValue": "={{$json.message.video}}",
+              "rightValue": "={{undefined}}",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f36ce26-9ea5-439a-be9a-67fde46d7db8",
+      "name": "IF File or Link",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.video.file_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1e40f3c9-92df-4ec2-acc4-d0070a3dab21",
+      "name": "Get a file",
+      "webhookId": "a89c69ce-0fdb-4377-982e-6eefc3705f88",
+      "credentials": {
+        "telegramApi": {
+          "id": "zhc2pywZ8bHRLCiX",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/data/temp/input.mp4",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        192,
+        0
+      ],
+      "id": "754efa78-5beb-4f67-b82c-836b7d65d592",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "command": "=yt-dlp --output \"/data/temp/input.mp4\" --format \"best[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]\" --merge-output-format mp4 --force-overwrite \"{{ $json.message.link_preview_options.url }}\""
+      },
+      "id": "4adcfe2c-ec37-4a42-8789-9429f81e850f",
+      "name": "Download Video (yt-dlp)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        128,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "command": "ffmpeg -y -i /data/temp/input.mp4 -vn -acodec pcm_s16le -ar 16000 /data/temp/audio.wav"
+      },
+      "id": "d75c8e65-e788-431f-b2f7-98045890620f",
+      "name": "Extract Audio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        432,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/data/temp/audio.wav",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        656,
+        80
+      ],
+      "id": "8f3cf910-ef4b-4b5d-b494-fe327eef8d9a",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://whisper:8000/v1/audio/transcriptions",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "tiny"
+            },
+            {
+              "name": "response_format",
+              "value": "srt"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ac74521a-d73e-42d0-848d-b27e0baec90e",
+      "name": "STT (Whisper API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        848,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "fileName": "/data/temp/subs_en.srt",
+        "options": {}
+      },
+      "id": "0333ed6f-509d-4307-80bf-5f1ace9bdc7e",
+      "name": "Save SRT EN",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "command": "/opt/venv/bin/python3 /data/translate_en2ru.py /data/temp/subs_en.srt /data/temp/subs_ru.srt"
+      },
+      "id": "5842fc6e-2799-4eb3-a6de-23cfa3b22865",
+      "name": "Translate EN→RU",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "command": "/data/burn_subtitles.sh /data/temp/input.mp4 /data/temp/subs_ru.srt /data/temp/output_ru.mp4"
+      },
+      "id": "069d2598-bcc4-4d58-b8db-7c4802455317",
+      "name": "Burn Subtitles",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "/data/temp/output_ru.mp4"
+      },
+      "id": "7dda59cd-f7c3-4162-8662-d8ce19df12f9",
+      "name": "Read Final Video",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1888,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2064,
+        80
+      ],
+      "id": "414c6169-c923-4928-937d-0211fdc1ebca",
+      "name": "Send a video",
+      "webhookId": "77c30d5e-f218-41d0-af93-59ddac46d3b7",
+      "credentials": {
+        "telegramApi": {
+          "id": "zhc2pywZ8bHRLCiX",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF File or Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Save SRT EN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF File or Link": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Video (yt-dlp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Video (yt-dlp)": {
+      "main": [
+        [
+          {
+            "node": "Extract Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Audio": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk1": {
+      "main": [
+        [
+          {
+            "node": "STT (Whisper API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STT (Whisper API)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save SRT EN": {
+      "main": [
+        [
+          {
+            "node": "Translate EN→RU",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate EN→RU": {
+      "main": [
+        [
+          {
+            "node": "Burn Subtitles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Burn Subtitles": {
+      "main": [
+        [
+          {
+            "node": "Read Final Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Final Video": {
+      "main": [
+        [
+          {
+            "node": "Send a video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a991aa5a-1837-4e70-97b0-0d6bca86b28f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6c91373aa343def4caff8472f5fdb2eb204af9cf3c1929971bcc39b915f76b63"
+  },
+  "id": "LnofTSMLT1ihyHxz",
+  "tags": []
+}

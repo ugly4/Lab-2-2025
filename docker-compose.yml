@@ -1,0 +1,30 @@
+# docker-compose.yml
+
+services:
+  n8n:
+    build: .
+    ports:
+      - "5678:5678"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - WEBHOOK_URL=${WEBHOOK_TUNNEL_URL}
+      - WHISPER_API_URL=http://whisper:8000
+      - HF_API_TOKEN=${HF_API_TOKEN}
+    volumes:
+      - ./temp:/data/temp
+      - ./burn_subtitles.sh:/data/burn_subtitles.sh:ro
+      - ./translate_en2ru.py:/data/translate_en2ru.py:ro
+    depends_on:
+      - whisper
+    restart: unless-stopped
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: whisper
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - WHISPER_MODEL=tiny
+    volumes:
+      - ./whisper_cache:/root/.cache/huggingface
